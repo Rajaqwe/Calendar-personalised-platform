@@ -1,5 +1,42 @@
 'use client'
-import { UploadCloud, ArrowRight, Check, Image as ImageIcon } from 'lucide-react'
+
+import { ArrowLeft, ArrowRight, ImagePlus, Loader2, UploadCloud } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
-export default function Create(){const [file,setFile]=useState<File|null>(null);const [drag,setDrag]=useState(false);return <main className="min-h-screen bg-[#171717] px-5 py-6 text-white md:px-8"><header className="mx-auto flex max-w-[1440px] items-center justify-between"><Link href="/dashboard/templates" className="display text-xl font-bold">CALENDA.</Link><span className="rounded-full border border-white/15 px-4 py-2 text-xs text-white/50">Template selected</span></header><div className="mx-auto grid max-w-[1100px] gap-12 py-20 lg:grid-cols-[.8fr_1.2fr] lg:items-center"><div className="reveal"><p className="mb-4 text-xs font-bold uppercase tracking-[.2em] text-white/40">Step 02 / Add an image</p><h1 className="display text-6xl font-semibold leading-[.88] md:text-8xl">Put a face<br/><span className="italic font-normal">to the year.</span></h1><p className="mt-7 max-w-md text-lg leading-7 text-white/55">Upload the doctor, person, product or image you want featured. You can adjust the crop in the next step.</p><div className="mt-8 flex gap-3 text-sm text-white/50"><span className="flex items-center gap-2"><Check size={15}/> JPG / PNG</span><span className="flex items-center gap-2"><Check size={15}/> High resolution</span></div></div><div><label onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);setFile(e.dataTransfer.files[0]||null)}} className={`relative flex min-h-[430px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[36px] border border-dashed p-10 text-center transition-all ${drag?'border-[#d8ff45] bg-[#d8ff45]/10':'border-white/20 bg-white/[.04] hover:bg-white/[.07]'}`}><input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={e=>setFile(e.target.files?.[0]||null)}/>{file?<><div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#d8ff45] text-black"><ImageIcon/></div><p className="text-xl font-semibold">{file.name}</p><p className="mt-2 text-sm text-white/40">Ready to compose</p></>:<><div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-white text-black"><UploadCloud/></div><p className="text-xl font-semibold">Drop your image here</p><p className="mt-2 text-sm text-white/40">or click to browse your device</p></>}</label><Link href="/preview" className={`mt-4 flex items-center justify-between rounded-2xl px-6 py-5 font-semibold transition-all ${file?'bg-[#d8ff45] text-black hover:scale-[1.01]':'bg-white/10 text-white/30 pointer-events-none'}`}>Continue to preview<ArrowRight size={20}/></Link></div></div></main>}
+import { use, useMemo, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { templates } from '@/lib/templates'
+
+export default function CreateCalendar({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const template = useMemo(() => templates.find(t => t.id === id) ?? templates[0], [id])
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+
+  function choose(next?: File) {
+    if (!next) return
+    if (!next.type.startsWith('image/')) return setMessage('Please upload a JPG, PNG or WEBP image.')
+    if (next.size > 15 * 1024 * 1024) return setMessage('Please keep the image below 15 MB.')
+    setFile(next); setPreview(URL.createObjectURL(next)); setMessage('')
+  }
+
+  async function createCalendar() {
+    if (!file) return setMessage('Add an image first.')
+    setBusy(true); setMessage('Saving your calendar…')
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { window.location.href = '/login?next=/dashboard/templates'; return }
+    const path = `${user.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '-')}`
+    const upload = await supabase.storage.from('calendar-assets').upload(path, file, { contentType: file.type })
+    if (upload.error) { setBusy(false); return setMessage(upload.error.message) }
+    const created = await supabase.from('calendars').insert({ user_id: user.id, template_id: template.id, name: `${template.name} — ${new Date().getFullYear()}`, source_image_path: path }).select('id').single()
+    if (created.error) { setBusy(false); return setMessage(created.error.message) }
+    window.location.href = `/preview/${created.data.id}`
+  }
+
+  return <main className="min-h-screen px-5 py-6 md:px-8"><header className="mx-auto flex max-w-[1440px] items-center justify-between"><Link href="/dashboard/templates" className="flex items-center gap-2 text-sm font-semibold"><ArrowLeft size={17}/> Templates</Link><Link href="/" className="display text-xl font-bold">CALENDA.</Link><span className="text-xs uppercase tracking-[.18em] text-black/40">Step 02 / 03</span></header>
+    <section className="mx-auto grid max-w-[1200px] gap-10 pb-24 pt-16 lg:grid-cols-[.8fr_1.2fr] lg:items-center"><div><p className="mb-3 text-xs font-bold uppercase tracking-[.2em] text-black/40">{template.category} / {template.name}</p><h1 className="display text-6xl font-semibold leading-[.85] md:text-8xl">Add your<br/><span className="italic font-normal">image.</span></h1><p className="mt-6 max-w-md text-lg leading-7 text-black/55">Upload the doctor, person, product or image you want featured. We will use it as the visual anchor for the calendar.</p><button onClick={createCalendar} disabled={busy || !file} className="mt-8 flex items-center gap-3 rounded-full bg-black px-6 py-4 font-semibold text-white disabled:opacity-40">{busy?<Loader2 className="animate-spin" size={18}/>:<ArrowRight size={18}/>} {busy?'Saving…':'Continue to preview'}</button>{message && <p className="mt-4 text-sm text-black/55">{message}</p>}</div>
+      <label onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();choose(e.dataTransfer.files?.[0])}} className="group relative flex aspect-[4/5] cursor-pointer items-center justify-center overflow-hidden rounded-[38px] border border-black/10 bg-[#e9e6dd] shadow-[0_30px_100px_rgba(0,0,0,.08)]">{preview?<img src={preview} alt="Uploaded artwork" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"/>:<div className="text-center"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-sm"><UploadCloud size={25}/></div><h2 className="display mt-6 text-3xl font-semibold">Drop image here</h2><p className="mt-2 text-sm text-black/45">or click to browse · JPG / PNG / WEBP · 15 MB max</p></div>}{preview&&<div className="absolute bottom-5 left-5 right-5 flex items-center justify-between rounded-2xl bg-white/85 px-4 py-3 backdrop-blur-xl"><span className="flex items-center gap-2 text-sm font-semibold"><ImagePlus size={17}/> {file?.name}</span><span className="text-xs text-black/45">Click to replace</span></div>}<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>choose(e.target.files?.[0])}/></label>
+    </section></main>
+}
