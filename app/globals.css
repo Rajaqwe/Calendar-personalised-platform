@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --ink:#171717; --paper:#f5f3ed; --accent:#d8ff45; --muted:#686861; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; background:var(--paper); color:var(--ink); font-family:'DM Sans',sans-serif; }
+button,a { -webkit-tap-highlight-color:transparent; }
+::selection { background:var(--accent); color:var(--ink); }
+
+.display { font-family:'Space Grotesk',sans-serif; letter-spacing:-.055em; }
+.marquee { overflow:hidden; white-space:nowrap; }
+.marquee-track { display:inline-flex; min-width:max-content; animation:marquee 22s linear infinite; }
+@keyframes marquee { to { transform:translateX(-50%); } }
+
+.grid-bg { background-image:linear-gradient(rgba(23,23,23,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(23,23,23,.055) 1px,transparent 1px); background-size:44px 44px; }
+
+.reveal { animation:reveal .75s cubic-bezier(.22,1,.36,1) both; }
+@keyframes reveal { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
+
+.card-lift { transition:transform .45s cubic-bezier(.22,1,.36,1), box-shadow .45s; }
+.card-lift:hover { transform:translateY(-8px) rotate(-.35deg); box-shadow:0 24px 55px rgba(23,23,23,.13); }
+
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }
