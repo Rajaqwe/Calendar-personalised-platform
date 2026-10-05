@@ -1,0 +1,16 @@
+import Link from 'next/link'
+import { ArrowLeft, ArrowRight, Download } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { templates } from '@/lib/templates'
+
+const months = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER']
+
+export default async function CalendarPreview({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: calendar } = await supabase.from('calendars').select('*').eq('id', id).single()
+  if (!calendar) return <main className="grid-bg flex min-h-screen items-center justify-center p-6"><div className="text-center"><h1 className="display text-5xl font-semibold">Calendar not found.</h1><Link href="/dashboard/templates" className="mt-6 inline-block underline">Choose a template</Link></div></main>
+  const template = templates.find(t => t.id === calendar.template_id) ?? templates[0]
+  const signed = calendar.source_image_path ? await supabase.storage.from('calendar-assets').createSignedUrl(calendar.source_image_path, 60 * 60) : { data: null }
+  return <main className="min-h-screen bg-[#171717] px-5 py-6 text-white md:px-8"><header className="mx-auto flex max-w-[1440px] items-center justify-between"><Link href="/dashboard/templates" className="display text-xl font-bold">CALENDA.</Link><span className="rounded-full border border-white/15 px-4 py-2 text-xs text-white/50">{template.name}</span></header><section className="mx-auto max-w-[1100px] py-12"><div className="mb-8 flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-[.2em] text-white/40">Preview / 12 pages</p><h1 className="display mt-2 text-5xl font-semibold md:text-7xl">Your calendar</h1></div><span className="hidden items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-semibold text-white/40 md:flex"><Download size={16}/> PDF generation coming next</span></div><div className="mx-auto max-w-[650px] rounded-[34px] bg-white p-3 shadow-2xl"><div className="relative aspect-[4/5] overflow-hidden rounded-[26px] bg-[#e8c36a]"><div className="absolute inset-0 bg-gradient-to-br from-[#e8c36a] to-[#f8f7f1]"/>{signed.data?.signedUrl && <img src={signed.data.signedUrl} alt="Uploaded calendar image" className="absolute left-[16%] top-[22%] h-[42%] w-[68%] rounded-[28px] object-cover"/>}<div className="absolute left-7 top-7 text-xs font-bold uppercase tracking-[.2em] text-black/70">{calendar.year} / 01</div><div className="absolute bottom-7 left-7"><div className="text-xs uppercase tracking-[.2em] text-black/50">{template.name}</div><div className="display text-7xl font-semibold text-black md:text-9xl">JAN</div></div></div></div><div className="mx-auto mt-6 flex max-w-[650px] items-center justify-between"><Link href="/dashboard/templates" className="flex items-center gap-2 rounded-full border border-white/15 px-5 py-3"><ArrowLeft size={16}/> Change template</Link><span className="text-sm text-white/40">01 / 12</span><button disabled className="flex items-center gap-2 rounded-full bg-white px-5 py-3 font-semibold text-black disabled:opacity-40">Next <ArrowRight size={16}/></button></div></section></main>
+}
